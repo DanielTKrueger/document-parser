@@ -1,0 +1,332 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+    "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Documents` Structure Validation</title>
+<style type="text/css">
+h2 {
+    font-family: Arial, Verdana, sans-serif;
+    padding:3px}
+</style>
+<script type="text/javascript">
+
+var elemArr = [];
+var DOMtree = [];
+var DOMbuild = "";
+
+function handledoc() {
+    var firstCheck = parsedoc();
+    document.getElementById('outputhead').innerHTML = "1.) Syntax Check: " + firstCheck;
+    if(firstCheck == "Valid document syntax!")
+    {
+        document.getElementById('outputhead').style.color = "#ffffff";
+        document.getElementById('outputhead').style.backgroundColor = "#55B05A";
+        document.getElementById('outputhead').style.fontWeight = "bold";
+        document.getElementById('outputhead').style.fontSize = "20pt";
+    }
+    else
+    {
+        document.getElementById('outputhead').style.color = "#ffffff";
+        document.getElementById('outputhead').style.backgroundColor = "#D23D24";
+        document.getElementById('outputhead').style.fontWeight = "bold";
+        document.getElementById('outputhead').style.fontSize = "20pt";
+
+        return;
+    }
+
+    var lastCheck = parseDOMStructure();
+    document.getElementById('outputhead2').innerHTML = "2.) Structure Check: " + lastCheck;
+    if(lastCheck == "Valid Structure of Document!")
+    {
+        document.getElementById('outputhead2').style.color = "#ffffff";
+        document.getElementById('outputhead2').style.backgroundColor = "#55B05A";
+        document.getElementById('outputhead2').style.fontWeight = "bold";
+        document.getElementById('outputhead2').style.fontSize = "20pt";
+    }
+    else
+    {
+        document.getElementById('outputhead2').style.color = "#ffffff";
+        document.getElementById('outputhead2').style.backgroundColor = "#D23D24";
+        document.getElementById('outputhead2').style.fontWeight = "bold";
+        document.getElementById('outputhead2').style.fontSize = "20pt";
+    }
+
+    document.getElementById('output').innerHTML = DOMbuild;
+
+    document.getElementById('docsarea').style.display = "none";
+    document.getElementById('parsebutton').style.display = "none";
+}
+
+function entity(startstr){
+
+    if(typeof(startstr) == 'string')
+    {
+        return (startstr.replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+    }
+    else
+    {
+        return startstr;
+    }
+}
+
+function parseDOMStructure() {
+    var tmp = '';
+    var depth = 0;
+    var depthstyle = 0;
+
+    for(var i = 0; i < elemArr.length; i+=3)
+    {
+        var ElemType = elemArr[i];
+        var ElemName = elemArr[i+1];
+        var ElemFull = elemArr[i+2];
+
+        if(ElemType == 1)
+        {
+            DOMtree.push(ElemName);
+
+            if((depth % 2) == 0)
+            {
+                depthstyle = ";border:1px solid #cc6666;background-color:#ffcccc";
+            }
+            else
+            {
+                depthstyle = ";border:1px solid #3366ff;background-color:#ccccff";
+            }
+
+            DOMbuild += "<div style='margin-left:10px" + depthstyle + "'><span onclick=\"javascript:toggle(this);\" style=\"float:left\"><img src=\"./images/bullet_toggle_minus.png\" alt=\"\" height=\"16\" width=\"16\" style=\"border:0px;display:block\" /><img src=\"./images/bullet_toggle_plus.png\" alt=\"\" height=\"16\" width=\"16\" style=\"border:0px;display:none\" /></span> " + entity(ElemFull) + "<br style=\"clear:left\" />";
+
+            depth++;
+        }
+        else if(ElemType == 2)
+        {
+            tmp = DOMtree.pop();
+            if(ElemName != tmp)
+            {
+                DOMbuild += "<span style=\"color:red;font-weight:bold\">ERROR: </span>" + entity(ElemFull) + " found, but &lt;" + tmp + "&gt; expected!</div>";
+
+                while(DOMtree.pop())
+                {
+                    DOMbuild += "</div>";
+                }
+
+                return "Error: Element &lt;" + ElemName + "&gt; closed, but &lt;" + tmp + "&gt; has been expected.";
+            }
+
+            if(depth != 0)
+            {
+                depth--;
+                DOMbuild += entity(ElemFull) + "</div>"
+            }
+            else
+            {
+                DOMbuild += "<span style=\"color:red;font-weight:bold\">ERROR: </span>Element &lt;" + ElemName + "&gt; closed, but no element was opened.";
+
+                return "Error: Element &lt;" + ElemName + "&gt; closed, but no element was opened.";
+            }
+        }
+        else if(ElemType == 3)
+        {
+            if((depth % 2) == 0)
+            {
+                depthstyle = ";border:1px solid #cc6666;background-color:#ffcccc";
+            }
+            else
+            {
+                depthstyle = ";border:1px solid #3366ff;background-color:#ccccff";
+            }
+
+            DOMbuild += "<div style='margin-left:10px" + depthstyle + "'>" + entity(ElemFull) + "</div>"
+        }
+        else if(ElemType == 4)
+        {
+            DOMbuild += "<div style='margin-left:10px;border:1px solid #999900;background-color:#ffffcc'>" + entity(ElemFull) + "</div>"
+        }
+        else
+        {
+            return "Error: Element &lt;" + ElemName + "&gt; is of an undefined type!.";
+        }
+    }
+
+    return "Valid Structure of Document!";
+}
+
+function parsedoc() {
+    var doc = document.getElementById('docsarea').value;
+
+    var i = 0; // pointer
+    var seeker = 0; //seek pointer
+
+    var currentElemName = '';
+    var currentElemType = '';
+    var tmp = '';
+    var startmarker = 0;
+    var cdata = '';
+
+    doc = doc.replace(/^\s+/g, '');
+    doc = doc.replace(/\s+$/g, '');
+    doc = doc.replace(/\s+/g, ' ');
+
+    while(i < (doc.length - 1))
+    {
+        if(doc.substr(i, 1) == '<') //element starts
+        {
+            seeker = i + 1;
+
+            if(doc.substr(seeker, 8) == '!DOCTYPE')
+            {
+                while(doc.substr(seeker, 1) != '>')
+                {
+                    if(doc.substr(seeker, 1) != '<')
+                    {
+                        seeker++;
+                    }
+                    else
+                    {
+                        return "Code: " + (doc.substr((seeker-30), 100));
+                    }
+                }
+
+                i = seeker + 1;
+            }
+            else if(doc.substr(seeker, 3) == '!--')
+            {
+                while(doc.substr(seeker, 3) != '-->')
+                {
+                    seeker++;
+                }
+
+                i = seeker + 3;
+            }
+            else
+            {
+                if(doc.substr(seeker, 1) == '/')
+                {
+                    currentElemType = 2;
+                }
+                else
+                {
+                    currentElemType = 1;
+                }
+
+                while(doc.substr(seeker, 1) != '>')
+                {
+                    if(doc.substr(seeker, 1) == '<')
+                    {
+                        return "Code: " + (doc.substr((seeker-30), 100));
+                    }
+                    else
+                    {
+                        seeker++;
+                    }
+                }
+
+                if(doc.substr((seeker-1), 1) == '/')
+                {
+                    currentElemType = 3;
+                }
+
+                //get Element Name
+                tmp = i + 1;
+                startmarker = tmp;
+                while((doc.substr(tmp, 1) != ' ') && (doc.substr(tmp, 1) != '>'))
+                {
+                    if(doc.substr(tmp, 1) == '/')
+                    {
+                        startmarker += 1;
+                    }
+                    tmp++;
+                }
+                currentElemName = doc.substr(startmarker, (tmp-startmarker));
+
+
+                elemArr.push(currentElemType);
+                elemArr.push(currentElemName);
+                elemArr.push(doc.substr(i, ((seeker - i) + 1)));
+
+                currentElemType = 0;
+
+                i = seeker + 1;
+            }
+        }
+        else if(doc.substr(i, 1) == ' ')
+        {
+            i++;
+        }
+        else
+        {
+            //CDATA
+            seeker = i;
+
+            while(! ((doc.substr(seeker, 1) == '<') && ((doc.substr(seeker, 9) != '<![CDATA[') || (currentElemName != 'script'))))
+            {
+                if(doc.substr(seeker, 9) == '<![CDATA[') {
+                    while(doc.substr(seeker, 3) != ']]>') {
+                        seeker++;
+                    }
+                }
+                seeker++;
+            }
+
+
+
+            elemArr.push(4);
+            elemArr.push("CDATA");
+            elemArr.push(doc.substr(i, (seeker - i)));
+
+            i = seeker;
+        }
+    }
+
+    //anything is correct
+    return "Valid document syntax!";
+}
+
+//postrendering functions
+
+function toggle(obj) {
+
+        if(obj.getElementsByTagName("IMG")[0].style.display == 'none')
+        {
+            //expand
+            obj.getElementsByTagName("IMG")[0].style.display = 'block';
+            obj.getElementsByTagName("IMG")[1].style.display = 'none';
+
+            var divnodes = obj.parentNode.getElementsByTagName("div");
+
+            for(var i = 0; i < divnodes.length; i++)
+            {
+                divnodes[i].style.display = "block";
+            }
+        }
+        else
+        {
+            //collapse
+            obj.getElementsByTagName("IMG")[0].style.display = 'none';
+            obj.getElementsByTagName("IMG")[1].style.display = 'block';
+
+            var divnodes = obj.parentNode.getElementsByTagName("div");
+
+            for(var i = 0; i < divnodes.length; i++)
+            {
+                divnodes[i].style.display = "none";
+            }
+        }
+}
+
+</script>
+</head>
+<body>
+
+<textarea rows="20" cols="120" id="docsarea" name="docsarea"></textarea>
+<br />
+<br />
+<input type="button" id="parsebutton" name="Parse!" onclick="javascript:handledoc();" value="Dokument parsen!">
+
+<h2 id="outputhead"></h2>
+
+<h2 id="outputhead2"></h2>
+
+<div id="output" style="font-family:Courier New, Courier, System, Sans-Serif;font-size:10pt"></div>
+
+</body>
+</html>
